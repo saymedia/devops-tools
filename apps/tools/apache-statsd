@@ -22,7 +22,8 @@ while (<>) {
     # First 3 fields are from syslog, then finally apache
     my ($syslog_datestr, $syslog_hostname, $syslog_appname,
         $remote_ip, $pid, $username, $timestamp, $request,
-        $status, $bytes, $referer, $useragent, $virtualhost, $usec) = m{
+        $status, $bytes, $referer, $useragent, $virtualhost,
+        $usec, $sec) = m{
         ^(.{15}) # syslog timestamp
         \s+
         (\S+) # syslog hostname
@@ -54,11 +55,20 @@ while (<>) {
             \s+
             (\d+)usec
         )?
-        $
+        (?:
+            \s+
+            ([\d+\.]+)sec
+        )?
     }x;
 
     my ($request_method) = $request =~ m/^(\S+)/;
-    my $msec = $usec / 1000 if defined $usec;
+
+    my $msec;
+    if (defined $usec) {
+        $msec = int($usec / 1000);
+    elsif (defined $sec) {
+        $msec = int($sec * 1000);
+    }
 
     my @stats;
 
