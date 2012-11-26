@@ -1,0 +1,83 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+
+my $appname = shift;
+
+use IO::Socket::INET;
+
+local $SIG{PIPE};
+
+my $statsd = IO::Socket::INET->new(
+    PeerAddr => 'oak-ss-stats001',
+    PeerPort => '8125',
+    Proto    => 'udp',
+);
+
+die "Somehow we couldn't open a UDP socket, whuuuuut? '$!'\n" unless $statsd;
+
+while (<>) {
+    chomp;
+    # First 3 fields are from syslog, then finally apache
+    my ($syslog_datestr, $syslog_hostname, $syslog_appname,
+        $remote_ip, $pid, $username, $timestamp, $request,
+        $status, $bytes, $referer, $useragent, $virtualhost, $usec) = m{
+        ^(.{15}) # syslog timestamp
+        \s+
+        (\S+) # syslog hostname
+        \s+
+        (\S+): # syslog appname
+        \s+
+        (\S+) # remote_ip
+        \s+
+        (\S+) # PID
+        \s+
+        (\S+) # user
+        \s+
+        \[(.*?)\] # timestamp
+        \s+
+        "(.*?)" # request
+        \s+
+        (\S+) # return status
+        \s+
+        (\S+) # return bytes
+        \s+
+        "(.*?)" # referer
+        \s+
+        "(.*?)" # user-agent
+        (?:
+            \s+
+            "(.*?)" # virtual-host
+        )?
+        (?:
+            \s+
+            (\d+)usec
+        )?
+        $
+    }x;
+
+    my ($request_method) = $request =~ m/^(\S+)/;
+    my $msec = $usec / 1000 if defined $usec;
+
+    my @stats;
+
+    my $base = "statsd.$appname";
+    push @stats, "$base.all.requests:1|c";
+    push @stats, "$base.all.bytes:$bytes|ms"; # hijack timers for the summary
+    push @stats, "$base.all.time:$msec|ms" if defined $msec;
+
+    if ($request_method) {
+        push @stats, "$base.method.$request_method.requests:1|c";
+        push @stats, "$base.method.$request_method.bytes:$bytes|ms"; # hijack timers for the summary
+        push @stats, "$base.method.$request_method.time:$msec|ms" if defined $msec;
+    }
+
+    if ($status) {
+        push @stats, "$base.status.$status.requests:1|c";
+        push @stats, "$base.status.$status.bytes:$bytes|ms"; # hijack timers for the summary
+        push @stats, "$base.status.$status.time:$msec|ms" if defined $msec;
+    }
+
+    $statsd->send(join("\n", @stats), 0);
+}
