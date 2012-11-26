@@ -66,7 +66,7 @@ while (<>) {
     my $msec;
     if (defined $usec) {
         $msec = int($usec / 1000);
-    elsif (defined $sec) {
+    } elsif (defined $sec) {
         $msec = int($sec * 1000);
     }
 
