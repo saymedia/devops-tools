@@ -19,17 +19,9 @@ die "Somehow we couldn't open a UDP socket, whuuuuut? '$!'\n" unless $statsd;
 
 while (<>) {
     chomp;
-    # First 3 fields are from syslog, then finally apache
-    my ($syslog_datestr, $syslog_hostname, $syslog_appname,
-        $remote_ip, $pid, $username, $timestamp, $request,
+    my ($remote_ip, $pid, $username, $timestamp, $request,
         $status, $bytes, $referer, $useragent, $virtualhost,
         $usec, $sec) = m{
-        ^(.{15}) # syslog timestamp
-        \s+
-        (\S+) # syslog hostname
-        \s+
-        (\S+): # syslog appname
-        \s+
         (\S+) # remote_ip
         \s+
         (\S+) # PID
