@@ -4,7 +4,6 @@ use strict;
 use warnings;
 
 use IO::Socket::INET;
-use Socket qw(sockaddr_in);
 use Sys::Hostname;
 
 my $hostname = hostname();
@@ -36,9 +35,6 @@ my $inject_sock = IO::Socket::INET->new(
 
 while (1) {
     my $saddr = $sock->recv(my $input, (64 * 1024), 0);
-
-    my ($sport, $siaddr) = sockaddr_in($saddr);
-    my $host = gethostbyaddr($siaddr, AF_INET);
 
     my @lines = split /\n/, $input;
 
