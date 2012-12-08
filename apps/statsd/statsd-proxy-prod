@@ -1,0 +1,55 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+
+use IO::Socket::INET;
+use Socket qw(sockaddr_in);
+use Sys::Hostname;
+
+my $hostname = hostname();
+
+my $tag = "UNKNOWN";
+
+my ($hostclass) = $hostname =~ m/^\w+-(\w+-\w+?)\d+[a-z]*$/;
+$hostclass ||= "unknown";
+
+if ($hostclass =~ /-stg/) {
+    $tag = "STAGE";
+} else {
+    $tag = "PROD";
+}
+
+$server->write("$tag.hosts.$hostclass.$input");
+
+my $sock = IO::Socket::INET->new(
+    LocalAddr => '127.0.0.1',
+    LocalPort => '8125',
+    Proto => 'udp',
+);
+
+my $inject_sock = IO::Socket::INET->new(
+    PeerAddr => 'oak-ss-stats001',
+    PeerPort => '8125',
+    Proto => 'udp',
+);
+
+# fork; fork;
+
+while (1) {
+    my $saddr = $sock->recv(my $input, (64 * 1024), 0);
+
+    my ($sport, $siaddr) = sockaddr_in($saddr);
+    my $host = gethostbyaddr($siaddr, AF_INET);
+
+    my @lines = split /\n/, $input;
+
+    my @output;
+
+    foreach my $line (@lines) {
+        push @output, "$tag.hosts.$hostclass.$line";
+        push @output, "$tag.apps.$line";
+    }
+
+    $inject_sock->write(join("\n", @output));
+}
