@@ -20,8 +20,6 @@ if ($hostclass =~ /-stg/) {
     $tag = "PROD";
 }
 
-$server->write("$tag.hosts.$hostclass.$input");
-
 my $sock = IO::Socket::INET->new(
     LocalAddr => '127.0.0.1',
     LocalPort => '8125',
