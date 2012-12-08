@@ -41,7 +41,7 @@ while (1) {
     my @output;
 
     foreach my $line (@lines) {
-        push @output, "$tag.hosts.$hostclass.$line";
+        push @output, "$tag.hosts.$hostclass.$hostname.$line";
         push @output, "$tag.apps.$line";
     }
 
