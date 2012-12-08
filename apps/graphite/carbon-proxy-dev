@@ -40,7 +40,7 @@ while (1) {
         my $ip_addr = $client->peerhost;
         while (my $input = <$client>) {
             my $tag = "UNKNOWN";
-            my ($hostname, $hostclass) = $input =~ m/(^\w+-(\w+-\w+?)\d+\w+)\b/;
+            my ($hostname, $hostclass) = $input =~ m/(^(?:\w+-)?(\w+-\w+?)\d+\w+)\b/;
             $hostclass ||= "unknown";
 
             if ($hostclass =~ /-ci/) {
