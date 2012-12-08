@@ -10,6 +10,8 @@ my $listener = IO::Socket::INET->new(
     Listen => 1024,
 );
 
+$SIG{CHLD} = "IGNORE";
+
 while (1) {
     local $!;
     my $client = $listener->accept;
@@ -21,7 +23,9 @@ while (1) {
     }
 
     my $pid = fork();
-    next if $pid; # Parent gets the child PID, so go accept another sock
+    redo if $pid; # Parent gets the child PID, so go accept another sock
+
+    warn "Fired up a child: $$";
 
     warn "Unable to fork, running single-process: $!"
         unless defined $pid;
@@ -32,19 +36,19 @@ while (1) {
     );
     print STDERR "Done opening socket to server\n";
 
-    unless ($server) {
+    if ($server) {
+        while (my $input = <$client>) {
+            $input =~ s/^(oak-(\w+-\w+?)\d+\w+)/hosts.$2.$1/;
+            $server->write($input);
+        }
+    } else {
         warn "Couldn't open connection to server: $!\n";
         $client->close;
         sleep 10;
-        next;
-    }
-
-    while (my $input = <$client>) {
-        $input =~ s/^(oak-(\w+-\w+?)\d+\w+)/$2.$1/;
-        $server->write($input);
     }
 
     if (defined $pid) { # We're in a child process
+        warn "Shutting down $$";
         exit;
         last;
     }
