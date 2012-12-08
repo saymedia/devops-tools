@@ -40,7 +40,7 @@ while (1) {
         my $ip_addr = $client->peerhost;
         while (my $input = <$client>) {
             my $tag = "UNKNOWN";
-            my ($hostname, $hostclass) = $input =~ m/(^(?:\w+-)?(\w+-\w+?)(?:\d+\w+)?)\b/;
+            my ($hostclass) = $input =~ m/^\w+-(\w+-\w+?)\d+[a-z]*\b/;
             $hostclass ||= "unknown";
 
             if ($hostclass =~ /-ci/) {
@@ -53,7 +53,8 @@ while (1) {
                 # these don't conform to our naming scheme, just use
                 # the front part of the VM name
                 $tag = "DEV";
-                ($hostclass) = $hostclass =~ m/^(\w+)-.+/;
+                ($hostclass) = $input =~ m/^(\w+)-/;
+		$hostclass ||= "unknown";
             }
 
             $server->write("$tag.hosts.$hostclass.$input");
