@@ -45,5 +45,5 @@ while (1) {
         push @output, "$tag.apps.$line";
     }
 
-    $inject_sock->write(join("\n", @output));
+    $inject_sock->send(join("\n", @output));
 }
