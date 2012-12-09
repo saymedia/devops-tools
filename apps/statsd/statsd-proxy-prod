@@ -31,8 +31,6 @@ my $inject_sock = IO::Socket::INET->new(
     Proto => 'udp',
 );
 
-# fork; fork;
-
 while (1) {
     my $saddr = $sock->recv(my $input, (64 * 1024), 0);
 
