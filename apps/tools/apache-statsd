@@ -66,7 +66,8 @@ while (<>) {
 
     my $base = "$appname";
     push @stats, "$base.all.requests:1|c";
-    push @stats, "$base.all.bytes:$bytes|ms"; # hijack timers for the summary
+    push @stats, "$base.all.bytes:$bytes|ms"
+        if defined $bytes && $bytes =~ m/^\d+$/; # hijack timers for the summary
     push @stats, "$base.all.time:$msec|ms" if defined $msec;
 
     if ($request_method) {
