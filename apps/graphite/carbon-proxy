@@ -37,15 +37,45 @@ while (1) {
     print STDERR "Done opening socket to server\n";
 
     if ($server) {
+        my $ip_addr = $client->peerhost;
         while (my $input = <$client>) {
-            $input =~ s/^(oak-(\w+-\w+?)\d+\w+)/hosts.$2.$1/;
-            $server->write($input);
+            my $tag = "UNKNOWN";
+            my ($hostname, $hostclass) = $input =~ m/(^\w+-(\w+-\w+?)\d+\w+)\b/;
+            $hostclass ||= "unknown";
+
+            # the prod network
+            if ($ip_addr =~ /^10\./ || $ip_addr == "127.0.0.1") {
+                if ($hostclass =~ /-stg/) {
+                    $tag = "STAGE";
+                } else {
+                    $tag = "PROD";
+                }
+
+                # the dev/ci/qa network
+            } elsif ($ip_addr =~ /^172\.16\.(6|7)/) {
+                if ($hostclass =~ /-ci/) {
+                    $tag = "CI";
+                } elsif ($hostclass =~ /-qa/) {
+                    $tag = "QA";
+                } elsif ($hostclass =~ /-dev/) {
+                    $tag = "DEV";
+                } else {
+                    # these don't conform to our naming scheme, just use
+                    # the front part of the VM name
+                    $tag = "DEV";
+                    ($hostclass) = $hostclass =~ m/^(\w+)-.+/;
+                }
+            }
+
+            $server->write("$tag.hosts.$hostclass.$input");
         }
+
     } else {
         warn "Couldn't open connection to server: $!\n";
         $client->close;
         sleep 10;
     }
+
 
     if (defined $pid) { # We're in a child process
         warn "Shutting down $$";
