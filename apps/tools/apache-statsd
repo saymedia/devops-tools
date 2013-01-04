@@ -10,7 +10,7 @@ use IO::Socket::INET;
 local $SIG{PIPE};
 
 my $statsd = IO::Socket::INET->new(
-    PeerAddr => 'oak-ss-stats001',
+    PeerAddr => 'localhost',
     PeerPort => '8125',
     Proto    => 'udp',
 );
@@ -64,7 +64,7 @@ while (<>) {
 
     my @stats;
 
-    my $base = "statsd.$appname";
+    my $base = "$appname";
     push @stats, "$base.all.requests:1|c";
     push @stats, "$base.all.bytes:$bytes|ms"; # hijack timers for the summary
     push @stats, "$base.all.time:$msec|ms" if defined $msec;
