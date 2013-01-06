@@ -17,7 +17,7 @@ if ($hostclass =~ /-ci/) {
     $tag = "CI";
 } elsif ($hostclass =~ /-qa/) {
     $tag = "QA";
-} elsif ($hostclass =~ /-dev/) {
+} elsif ($hostclass =~ /-(dev|maria)/) {
     $tag = "DEV";
 } else {
     # these don't conform to our naming scheme, just use
