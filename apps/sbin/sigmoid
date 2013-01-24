@@ -1,0 +1,88 @@
+#!/usr/bin/perl
+
+use strict;
+use Getopt::Long;
+use IO::Socket::INET;
+
+GetOptions(
+           'counter'   => \(my $counter = 0),
+           'aggregate' => \(my $aggregate = 0),
+           'gauge'     => \(my $gauge = 0),
+           'event'     => \(my $event = 0),
+           'raw'       => \(my $raw = 0),
+
+           'disable-multiplex' => \(my $disable_mux = 0),
+           'appname'           => \(my $appname = $ENV{app_name} || "unknown"),
+           'hostname'          => \(my $hostname = "localhost"),
+
+           'usage'     => \(my $usage = 0),
+           );
+
+if ($usage) {
+    print "Usage: $0 [<options>] <metricname> <value>\n";
+    print " Exactly one of:\n";
+    print " --counter\n";
+    print " --aggregate\n";
+    print " --gauge\n";
+    print " --event\n";
+    print " --raw\n";
+    print "\n";
+    print " Other options:\n";
+    print " --disable-multiplex (for statsd only)\n";
+    print " --appname\n";
+    print " --hostname (to log on behalf of another machine)\n";
+    exit 1;
+}
+
+my ($metric, $value) = @ARGV;
+
+# Exactly one of these must be set
+if ($raw + $event + $gauge + $aggregate + $counter != 1) {
+    die "You must specify exactly one of the metric types\n";
+}
+
+# Either we want the hostname or we don't want multiplexing, not both
+if ($disable_mux && $hostname ne "localhost") {
+    die "I can't disable multiplexing when you give me a hostname\n";
+}
+
+
+# Stuff going to statsd
+if ($counter || $aggregate || $gauge) {
+    if ($disable_mux) {
+        $hostname = "statsd.sigma.saymedia.com";
+    }
+
+    my $statsd = IO::Socket::INET->new(
+                                    PeerAddr => $hostname,
+                                    PeerPort => '8125',
+                                    Proto    => 'udp',
+                                    ) or die "Somehow we couldn't open a UDP socket to $hostname: '$!'\n";
+
+    my $type = "";
+    $type = "c" if $counter;
+    $type = "g" if $gauge;
+    $type = "ms" if $aggregate;
+
+    # FIXME: doesn't handle sample percentages huh
+    # FIXME: nothing is adding ENV at the beginning when we talk to the
+    #        central statsd
+    # FIXME: statsd proxy only listens on localhost
+    $statsd->send("$appname.$metric:$value|$type");
+
+# Stuff going to graphite
+} elsif ($event || $raw) {
+    # FIXME: what puts PROD etc at the beginning when we talk to graphite directly?
+    if ($event) {
+        $metric = "DEV.apps.events.$appname.$metric";
+        $value = 1;
+    }
+
+    my $graphite = IO::Socket::INET->new(
+                                         PeerAddr => "oak-ss-stats001",
+                                         PeerPort => 2003,
+                                         Timeout => 1
+                                         ) or die "Can't connect to oak-ss-stats001: '$!'\n";
+    my $time = time();
+    print $graphite "$metric $value $time\n";
+}
