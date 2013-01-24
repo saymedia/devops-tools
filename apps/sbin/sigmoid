@@ -3,6 +3,7 @@
 use strict;
 use Getopt::Long;
 use IO::Socket::INET;
+use Sys::Hostname;
 
 GetOptions(
            'counter'   => \(my $counter = 0),
@@ -13,9 +14,9 @@ GetOptions(
 
            'disable-multiplex' => \(my $disable_mux = 0),
            'appname=s'         => \(my $appname = $ENV{app_name}),
-           'hostname'          => \(my $hostname = "localhost"),
+           'hostname=s'          => \(my $hostname = hostname()),
 
-           'usage'     => \(my $usage = 0),
+           'h|usage'     => \(my $usage = 0),
            );
 
 if ($usage) {
