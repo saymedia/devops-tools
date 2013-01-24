@@ -12,7 +12,7 @@ GetOptions(
            'raw'       => \(my $raw = 0),
 
            'disable-multiplex' => \(my $disable_mux = 0),
-           'appname'           => \(my $appname = $ENV{app_name}),
+           'appname=s'         => \(my $appname = $ENV{app_name}),
            'hostname'          => \(my $hostname = "localhost"),
 
            'usage'     => \(my $usage = 0),
