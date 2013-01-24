@@ -72,6 +72,7 @@ while (<>) {
     my @stats;
 
     my $base = "$appname";
+    $virtualhost =~ tr/./_/g;
     $base =~ s/__VHOST__/$virtualhost/g;
     push @stats, "$base.all.requests:1|c";
     push @stats, "$base.all.bytes:$bytes|ms"
