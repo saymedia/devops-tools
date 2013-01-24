@@ -21,7 +21,7 @@ GetOptions(
 if ($usage) {
     print "Usage: $0 [<options>] <metricname> <value>\n";
     print " Exactly one of:\n";
-    print " --counter\n";
+    print " --counter (value defaults to 1)\n";
     print " --aggregate\n";
     print " --gauge\n";
     print " --event\n";
@@ -41,6 +41,9 @@ if ($disable_mux) {
 }
 if ($event || $raw) {
     die "This option doesn't work yet\n";
+}
+if ($counter || !$value) {
+    $value = 1;
 }
 
 if (@ARGV > 2) {
@@ -78,7 +81,7 @@ if ($counter || $aggregate || $gauge) {
     $type = "g" if $gauge;
     $type = "ms" if $aggregate;
 
-    # FIXME: doesn't handle sample percentages huh
+    # FIXME: doesn't handle sampling yet
     # FIXME: nothing is adding ENV at the beginning when we talk to the
     #        central statsd
     # FIXME: statsd proxy only listens on localhost
