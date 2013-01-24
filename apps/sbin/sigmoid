@@ -36,6 +36,20 @@ if ($usage) {
 
 my ($metric, $value) = @ARGV;
 
+if ($disable_mux) {
+    die "This option doesn't work yet\n";
+}
+if ($event || $raw) {
+    die "This option doesn't work yet\n";
+}
+
+if (@ARGV > 2) {
+    die "Why did you give me >2 things?\n";
+}
+if (!$metric) {
+    die "I need a metric name specified\n";
+}
+
 # Exactly one of these must be set
 if ($raw + $event + $gauge + $aggregate + $counter != 1) {
     die "You must specify exactly one of the metric types\n";
