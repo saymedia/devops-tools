@@ -3,6 +3,7 @@
 use strict;
 use warnings;
 
+# If appname contains __VHOST__ we can replace it with the vhost
 my $appname = shift;
 
 use IO::Socket::INET;
@@ -17,8 +18,12 @@ my $statsd = IO::Socket::INET->new(
 
 die "Somehow we couldn't open a UDP socket, whuuuuut? '$!'\n" unless $statsd;
 
-# Usage: LogFormat "%h %P %u %t \"%r\" %>s %b \"%{Referer}i\" \"%{User-Agent}i\" \"%{Host}i\" %Tsec" apache-statsd
-#        CustomLog "|/usr/local/bin/apache-statsd appname" apache-statsd
+# Usage:
+# apache 1.x  LogFormat "%h %P %u %t \"%r\" %>s %b \"%{Referer}i\" \"%{User-Agent}i\" \"%{Host}i\" %Tsec" apache-statsd
+# apache 2.x  LogFormat "%h %P %u %t \"%r\" %>s %b \"%{Referer}i\" \"%{User-Agent}i\" \"%{Host}i\" %Dusec" apache-statsd
+# static      CustomLog "|/usr/local/bin/apache-statsd appname" apache-statsd
+# dynamic     CustomLog "|/usr/local/bin/apache-statsd __VHOST__" apache-statsd
+
 while (<>) {
     chomp;
     my ($remote_ip, $pid, $username, $timestamp, $request,
@@ -67,6 +72,7 @@ while (<>) {
     my @stats;
 
     my $base = "$appname";
+    $base =~ s/__VHOST__/$virtualhost/g;
     push @stats, "$base.all.requests:1|c";
     push @stats, "$base.all.bytes:$bytes|ms"
         if defined $bytes && $bytes =~ m/^\d+$/; # hijack timers for the summary
