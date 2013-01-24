@@ -17,6 +17,8 @@ my $statsd = IO::Socket::INET->new(
 
 die "Somehow we couldn't open a UDP socket, whuuuuut? '$!'\n" unless $statsd;
 
+# Usage: LogFormat "%h %P %u %t \"%r\" %>s %b \"%{Referer}i\" \"%{User-Agent}i\" \"%{Host}i\" %Tsec" apache-statsd
+#        CustomLog "|/usr/local/bin/apache-statsd appname" apache-statsd
 while (<>) {
     chomp;
     my ($remote_ip, $pid, $username, $timestamp, $request,
