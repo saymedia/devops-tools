@@ -19,8 +19,8 @@ my $statsd = IO::Socket::INET->new(
 die "Somehow we couldn't open a UDP socket, whuuuuut? '$!'\n" unless $statsd;
 
 # Usage:
-# apache 1.x  LogFormat "%h %P %u %t \"%r\" %>s %b \"%{Referer}i\" \"%{User-Agent}i\" \"%{Host}i\" %Tsec" apache-statsd
-# apache 2.x  LogFormat "%h %P %u %t \"%r\" %>s %b \"%{Referer}i\" \"%{User-Agent}i\" \"%{Host}i\" %Dusec" apache-statsd
+# apache 1.x  LogFormat "%h %P %u %t \"%r\" %>s %b \"%{Referer}i\" \"%{User-Agent}i\" \"%v\" %Tsec" apache-statsd
+# apache 2.x  LogFormat "%h %P %u %t \"%r\" %>s %b \"%{Referer}i\" \"%{User-Agent}i\" \"%v\" %Dusec" apache-statsd
 # static      CustomLog "|/usr/local/bin/apache-statsd appname" apache-statsd
 # dynamic     CustomLog "|/usr/local/bin/apache-statsd __VHOST__" apache-statsd
 
