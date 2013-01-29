@@ -73,6 +73,7 @@ if ($counter || $aggregate || $gauge) {
         $hostname = "statsd.sigma.saymedia.com";
     }
 
+    # FIXME: other statsd-proxies aren't listening on non-localhost
     my $statsd = IO::Socket::INET->new(
                                     PeerAddr => $hostname,
                                     PeerPort => '8125',
