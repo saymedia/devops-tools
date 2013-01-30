@@ -39,8 +39,16 @@ while (1) {
     my @output;
 
     foreach my $line (@lines) {
-        push @output, "$tag.hosts.$hostclass.$hostname.__TYPE__.$line";
-        push @output, "$tag.apps.__TYPE__.$line";
+        if ($line =~ s/^\^1\s//) {
+            # host only
+            push @output, "$tag.hosts.$hostclass.$hostname.__TYPE__.$line";
+        }elsif($line =~ s/^\^2\s//) {
+            # cluster only
+            push @output, "$tag.apps.__TYPE__.$line";
+        }else{
+            push @output, "$tag.hosts.$hostclass.$hostname.__TYPE__.$line";
+            push @output, "$tag.apps.__TYPE__.$line";
+        }
     }
 
     $inject_sock->send(join("\n", @output));
