@@ -116,7 +116,7 @@ if ($counter || $aggregate || $gauge) {
     }
 
     # FIXME: statsd proxy only listens on localhost
-    print "[DEBUG] Sending $key:$value|$type\n";
+    print "[DEBUG] Sending $key:$value|$type\n" if $debug;
     $statsd->send("$key:$value|$type");
     # Stuff going to graphite
 } elsif ($event) {
@@ -132,6 +132,6 @@ if ($counter || $aggregate || $gauge) {
     print "[DEBUG] UDP connection opened on $hostname\n" if $debug;
 
     my $time = time();
-    print "[DEBUG] Sending $metric $value $time\n";
+    print "[DEBUG] Sending $metric $value $time\n" if $debug;
     $graphite->send("$metric $value $time\n");
 }
