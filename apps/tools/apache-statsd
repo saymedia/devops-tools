@@ -3,6 +3,21 @@
 use strict;
 use warnings;
 
+my @valid_methods = qw(
+    OPTIONS
+    TRACE
+
+    HEAD
+    GET
+    POST
+
+    PUT
+    DELETE
+    MKCOL
+);
+
+my %valid_methods = map { $_, 1 } @valid_methods;
+
 # If appname contains __VHOST__ we can replace it with the vhost
 my $appname = shift;
 
@@ -61,6 +76,10 @@ while (<>) {
     }x;
 
     my ($request_method) = $request =~ m/^(\S+)/;
+
+    unless ($valid_methods{$request_method}) {
+        $request_method = "--invalid--";
+    }
 
     my $msec;
     if (defined $usec) {
