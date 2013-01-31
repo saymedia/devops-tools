@@ -51,5 +51,28 @@ while (1) {
         }
     }
 
-    $inject_sock->send(join("\n", @output));
+    my $length = 0;
+    my @blocks;
+
+    my $flush = sub {
+        return unless @blocks;
+
+        $inject_sock->send(join("\n", @blocks));
+
+        @blocks = ();
+        $length = 0;
+    };
+
+    while (@output) {
+        my $next = length $output[0];
+
+        if ($length + $next > 1436) {
+            $flush->();
+        }
+
+        push @blocks, shift @output;
+        $length += $next;
+    }
+
+    $flush->();
 }
