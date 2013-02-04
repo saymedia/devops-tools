@@ -1,0 +1,114 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+
+my @valid_methods = qw(
+    OPTIONS
+    TRACE
+
+    HEAD
+    GET
+    POST
+
+    PUT
+    DELETE
+    MKCOL
+);
+
+my %valid_methods = map { $_, 1 } @valid_methods;
+
+# If appname contains __VHOST__ we can replace it with the vhost
+my $appname = shift;
+
+use IO::Socket::INET;
+
+local $SIG{PIPE};
+
+my $statsd = IO::Socket::INET->new(
+    PeerAddr => 'localhost',
+    PeerPort => '8125',
+    Proto    => 'udp',
+);
+
+die "Somehow we couldn't open a UDP socket, whuuuuut? '$!'\n" unless $statsd;
+
+# Usage:
+# apache 1.x  LogFormat "%h %P %u %t \"%r\" %>s %b \"%{Referer}i\" \"%{User-Agent}i\" \"%v\" %Tsec" apache-statsd
+# apache 2.x  LogFormat "%h %P %u %t \"%r\" %>s %b \"%{Referer}i\" \"%{User-Agent}i\" \"%v\" %Dusec" apache-statsd
+# static      CustomLog "|/usr/local/bin/apache-statsd appname" apache-statsd
+# dynamic     CustomLog "|/usr/local/bin/apache-statsd __VHOST__" apache-statsd
+
+while (<>) {
+    chomp;
+    my ($remote_ip, $pid, $username, $timestamp, $request,
+        $status, $bytes, $referer, $useragent, $virtualhost,
+        $usec, $sec) = m{
+        (\S+) # remote_ip
+        \s+
+        (\S+) # PID
+        \s+
+        (\S+) # user
+        \s+
+        \[(.*?)\] # timestamp
+        \s+
+        "(.*?)" # request
+        \s+
+        (\S+) # return status
+        \s+
+        (\S+) # return bytes
+        \s+
+        "(.*?)" # referer
+        \s+
+        "(.*?)" # user-agent
+        (?:
+            \s+
+            "(.*?)" # virtual-host
+        )?
+        (?:
+            \s+
+            (\d+)usec
+        )?
+        (?:
+            \s+
+            ([\d+\.]+)sec
+        )?
+    }x;
+
+    my ($request_method) = $request =~ m/^(\S+)/;
+
+    unless ($valid_methods{$request_method}) {
+        $request_method = "--invalid--";
+    }
+
+    my $msec;
+    if (defined $usec) {
+        $msec = int($usec / 1000);
+    } elsif (defined $sec) {
+        $msec = int($sec * 1000);
+    }
+
+    my @stats;
+
+    my $base = "$appname";
+    $virtualhost =~ tr/./_/;
+    $base =~ s/__VHOST__/$virtualhost/g;
+    push @stats, "$base.all.requests:1|c";
+    push @stats, "$base.all.bytes:$bytes|ms"
+        if defined $bytes && $bytes =~ m/^\d+$/; # hijack timers for the summary
+    push @stats, "$base.all.time:$msec|ms" if defined $msec;
+
+    if ($request_method) {
+        push @stats, "$base.method.$request_method.requests:1|c";
+        push @stats, "$base.method.$request_method.bytes:$bytes|ms"; # hijack timers for the summary
+        push @stats, "$base.method.$request_method.time:$msec|ms" if defined $msec;
+    }
+
+    if ($status) {
+        push @stats, "$base.status.$status.requests:1|c";
+        push @stats, "$base.status.$status.bytes:$bytes|ms"; # hijack timers for the summary
+        push @stats, "$base.status.$status.time:$msec|ms" if defined $msec;
+    }
+
+    $statsd->send(join("\n", @stats), 0);
+}

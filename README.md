@@ -8,6 +8,8 @@ A collection of scripts and tools used at SAY Media.
 
 Proxies to rewrite metrics names.
 
+### apache-statsd
+
 ## graphite
 
 ### sigmoid
