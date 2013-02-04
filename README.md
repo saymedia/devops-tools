@@ -3,16 +3,16 @@ SAY Media's devops toolbox
 
 A collection of scripts and tools used at SAY Media.
 
-statsd/
--------
+statsd
+------
 
 statsd-proxy-prod
 ~~~~~~~~~~~~~~~~~
 
 Proxies to rewrite metrics names.
 
-graphite/
----------
+graphite
+--------
 
 sigmoid
 ~~~~~~~
