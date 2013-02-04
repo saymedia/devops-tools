@@ -6,4 +6,14 @@ A collection of scripts and tools used at SAY Media.
 statsd/
 -------
 
-In this directory you'll find proxies for **PROD** and **DEV** environment.
+`statsd-proxy-,{dev}}`
+~~~~~~~~~~~~~~~~~~~~~~
+
+Proxies to rewrite metrics names.
+
+graphite/
+
+`sigmoid`
+~~~~~~~~~
+
+Wrap this script in other scripts that need to report metrics or statistics to Graphite or StatsD.
