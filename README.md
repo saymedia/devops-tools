@@ -6,14 +6,15 @@ A collection of scripts and tools used at SAY Media.
 statsd/
 -------
 
-`statsd-proxy-,{dev}}`
-~~~~~~~~~~~~~~~~~~~~~~
+statsd-proxy-{prod,dev}
+~~~~~~~~~~~~~~~~~~~~~~~
 
 Proxies to rewrite metrics names.
 
 graphite/
+---------
 
-`sigmoid`
-~~~~~~~~~
+sigmoid
+~~~~~~~
 
 Wrap this script in other scripts that need to report metrics or statistics to Graphite or StatsD.
