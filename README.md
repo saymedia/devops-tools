@@ -1,20 +1,15 @@
-SAY Media's devops toolbox
-==========================
+# SAY Media's devops toolbox
 
 A collection of scripts and tools used at SAY Media.
 
-statsd
-------
+## statsd
 
-statsd-proxy-prod
-~~~~~~~~~~~~~~~~~
+### statsd-proxy-prod
 
 Proxies to rewrite metrics names.
 
-graphite
---------
+## graphite
 
-sigmoid
-~~~~~~~
+### sigmoid
 
 Wrap this script in other scripts that need to report metrics or statistics to Graphite or StatsD.
