@@ -1,0 +1,137 @@
+#!/usr/bin/perl
+
+use strict;
+use Getopt::Long;
+use IO::Socket::INET;
+use Sys::Hostname;
+
+GetOptions(
+           'counter'   => \(my $counter = 0),
+           'aggregate' => \(my $aggregate = 0),
+           'gauge'     => \(my $gauge = 0),
+           'event'     => \(my $event = 0),
+
+           'sample-rate=i' => \(my $sample_rate = undef),
+           'cluster-only'  => \(my $cluster_only = 0),
+           'host-only'     => \(my $host_only = 0),
+           'appname=s'     => \(my $appname = $ENV{app_name}),
+           'hostname=s'    => \(my $hostname = 'localhost'),
+           'env=s'         => \(my $environment = undef),
+
+           'd|debug' => \(my $debug = 0),
+           'h|usage' => \(my $usage = 0),
+           );
+
+if ($usage) {
+    print "Usage: $0 [<options>] <metricname> <value>\n";
+    print " Exactly one of:\n";
+    print " --counter (value defaults to 1)\n";
+    print " --aggregate\n";
+    print " --gauge\n";
+    print " --event\n";
+    print "\n";
+    print " Other options:\n";
+    print " --sample-rate (for counters only)\n";
+    print " --cluster-only (for statsd only)\n";
+    print " --host-only (for statsd only)\n";
+    print " --appname\n";
+    print " --hostname (to log on behalf of another machine)\n";
+    print " --env\n";
+    print " --debug\n";
+    exit 1;
+}
+
+my $central_statsd = 'statsd.sigma.saymedia.com';
+
+my ($metric, $value) = @ARGV;
+
+if ($counter || !$value) {
+    $value = 1;
+}
+if (($counter || $aggregate || $gauge || $event ) && !$appname) {
+    die "You must specify an app name\n";
+}
+if (defined $sample_rate && !$counter) {
+    die "--sample-rate can only be used with --counter\n";
+}
+if (defined $sample_rate && $sample_rate <= 0) {
+    die "Sample rate has to be greater than 0\n";
+}
+if ($event && !defined $environment) {
+    die "--env is required with --event\n";
+}
+if (defined $environment && !$event) {
+    die "--env is allowed only with --event";
+}
+
+if (@ARGV > 2) {
+    die "Why did you give me >2 things?\n";
+}
+if (!$metric) {
+    die "I need a metric name specified\n";
+}
+
+# Exactly one of these must be set
+if ($event + $gauge + $aggregate + $counter != 1) {
+    die "You must specify exactly one of the metric types\n";
+}
+
+# Stuff going to statsd
+if ($counter || $aggregate || $gauge) {
+    $hostname = $central_statsd if $cluster_only;
+
+    my $type = "";
+
+    if ($counter && defined $sample_rate) {
+        my $sample_pct  = sprintf("%.02f", 1/$sample_rate);
+        $type = "c|\@$sample_pct";
+    }else {
+        $type = "c" if $counter;
+        $type = "ms" if $aggregate;
+        #  you can't aggregate gauges across a cluster (they will all overwrite each other!)
+        ($type, $host_only) = ("g", 1) if $gauge;
+    }
+
+    # FIXME: other statsd-proxies aren't listening on non-localhost
+    my $statsd = IO::Socket::INET->new(
+                                    PeerAddr => $hostname,
+                                    PeerPort => '8125',
+                                    Proto    => 'udp',
+                                    ) or die "Somehow we couldn't open a UDP socket to $hostname: '$!'\n";
+
+    print "[DEBUG] UDP connection opened on $hostname\n" if $debug;
+
+    my $key = "$appname.$metric";
+
+    # With --host-only, it should only aggregate for the host, NOT the cluster.
+    # By prefixing our line with '^1\s' we let the statsd proxy know that it should not aggregate
+    if ($host_only == 1) {
+        $key = '^1 '.$key;
+    }
+
+    # With --cluster-only, we don't want the line to be added for the hosts.
+    # By prefixing our line with '^2\s' we let the statsd proxy know that it should not build the host line
+    if ($cluster_only == 1) {
+        $key = '^2 '.$key;
+    }
+
+    # FIXME: statsd proxy only listens on localhost
+    print "[DEBUG] Sending $key:$value|$type\n" if $debug;
+    $statsd->send("$key:$value|$type");
+    # Stuff going to graphite
+} elsif ($event) {
+    $metric = "$environment.apps.events.$appname.$metric";
+    $value = 1;
+
+    my $graphite = IO::Socket::INET->new(
+                                         PeerAddr => "oak-ss-stats001",
+                                         PeerPort => 2003,
+                                         Timeout => 1
+                                     ) or die "Can't connect to oak-ss-stats001: '$!'\n";
+
+    print "[DEBUG] UDP connection opened on $hostname\n" if $debug;
+
+    my $time = time();
+    print "[DEBUG] Sending $metric $value $time\n" if $debug;
+    $graphite->send("$metric $value $time\n");
+}
