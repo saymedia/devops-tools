@@ -1,0 +1,78 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+
+use IO::Socket::INET;
+use Sys::Hostname;
+
+my $hostname = hostname();
+
+my $tag = "UNKNOWN";
+
+my ($hostclass) = $hostname =~ m/^\w+-(\w+-\w+?)\d+[a-z]*$/;
+$hostclass ||= "unknown";
+
+if ($hostclass =~ /-stg/) {
+    $tag = "STAGE";
+} else {
+    $tag = "PROD";
+}
+
+my $sock = IO::Socket::INET->new(
+    LocalAddr => '127.0.0.1',
+    LocalPort => '8125',
+    Proto => 'udp',
+);
+
+my $inject_sock = IO::Socket::INET->new(
+    PeerAddr => 'statsd.sigma.saymedia.com',
+    PeerPort => '8125',
+    Proto => 'udp',
+);
+
+while (1) {
+    my $saddr = $sock->recv(my $input, (64 * 1024), 0);
+
+    my @lines = split /\n/, $input;
+
+    my @output;
+
+    foreach my $line (@lines) {
+        if ($line =~ s/^\^1\s//) {
+            # host only
+            push @output, "$tag.hosts.$hostclass.$hostname.__TYPE__.$line";
+        }elsif($line =~ s/^\^2\s//) {
+            # cluster only
+            push @output, "$tag.apps.__TYPE__.$line";
+        }else{
+            push @output, "$tag.hosts.$hostclass.$hostname.__TYPE__.$line";
+            push @output, "$tag.apps.__TYPE__.$line";
+        }
+    }
+
+    my $length = 0;
+    my @blocks;
+
+    my $flush = sub {
+        return unless @blocks;
+
+        $inject_sock->send(join("\n", @blocks));
+
+        @blocks = ();
+        $length = 0;
+    };
+
+    while (@output) {
+        my $next = length $output[0];
+
+        if ($length + $next > 1436) {
+            $flush->();
+        }
+
+        push @blocks, shift @output;
+        $length += $next;
+    }
+
+    $flush->();
+}
