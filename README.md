@@ -6,8 +6,8 @@ A collection of scripts and tools used at SAY Media.
 statsd/
 -------
 
-statsd-proxy-{prod,dev}
-~~~~~~~~~~~~~~~~~~~~~~~
+statsd-proxy-prod
+~~~~~~~~~~~~~~~~~
 
 Proxies to rewrite metrics names.
 
