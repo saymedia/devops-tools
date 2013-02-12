@@ -1,0 +1,120 @@
+#!/usr/bin/perl
+
+# check_graphite --age=1d -- metric_name=sumSeries(foo.bar.*.baz)
+# check_graphite --age=1d --metric=sumSeries(foo.bar.*.baz) --compare-to=timeShift(sumSeries(foo.bar.*.baz),5d) --warn=10% --crit=5%
+# check_graphite --period=1d --end=now --metric=sumSeries(foo.bar.*.baz) --compare-to=timeShift(sumSeries(foo.bar.*.baz),5d) --warn=10% --crit=5% -n --dry-run --graphite-urls
+
+use strict;
+use warnings;
+
+use JSON::XS;
+use LWP::Simple qw(get);
+use List::Util qw(sum);
+use Getopt::Long;
+
+my $GRAPHITE_BASE = "http://graphite.sigma.saymedia.com/render/";
+
+GetOptions(
+    'from=s'    => \(my $from),
+    'until=s'   => \(my $until),
+
+    'metric=s'  => \(my $metric),
+    'compare=s' => \(my $compare),
+
+    'warn=s'    => \(my $warn_at),
+    'crit=s'    => \(my $crit_at),
+
+    'n|dry-run' => \(my $dry_run),
+    'v|verbose' => \(my $verbose),
+
+    'visual'    => \(my $generate_visual_url),
+);
+
+my @url_args;
+
+push @url_args, "from", $from
+    if (defined $from && length $from);
+
+push @url_args, "until", $until
+    if (defined $until && length $until);
+
+if (defined $metric && length $metric) {
+    push @url_args, "target", $metric;
+} else {
+    print STDERR "--metric is required\n";
+    exit 22;
+}
+
+if (defined $compare && length $metric) {
+    push @url_args, "target", $compare;
+} else {
+    print STDERR "--compare is required\n";
+    exit 22;
+}
+
+my $uri = URI->new($GRAPHITE_BASE);
+
+if ($verbose && $generate_visual_url) {
+    $uri->query_form(\@url_args);
+    print STDERR "You can view the compared data by loading: $uri\n";
+}
+
+$uri->query_form([@url_args, format => 'json']);
+
+if ($verbose) {
+    print STDERR "I'm going to load my JSON data from: $uri\n";
+}
+
+exit 0 if $dry_run; # We haven't actually done anything yet, so exit
+
+# Get the JSON from Graphite
+my $raw_json = get($uri);
+
+unless ($raw_json) {
+    print STDERR "Failed to get a JSON result from graphite.\n";
+    exit 138;
+}
+# Get the actual data out of the JSON blob.
+my $data = decode_json($raw_json);
+unless (@$data) {
+    print STDERR "No data found\n";
+    exit 138;
+}
+
+my $get_average = sub {
+    my $item = shift;
+    my $sum = sum map { $_->[0] } @{$item->{datapoints}};
+    return $sum / scalar(@{$item->{datapoints}});
+};
+
+my $metric_average = $get_average->(shift @$data);
+my $compare_average = $get_average->(shift @$data);
+
+my $percent = 100 * ($metric_average - $compare_average ) / $compare_average; # ?? O_o
+
+if ($verbose) {
+    print STDERR <<"EOT";
+Metric Average is: $metric_average
+Compare Average is: $compare_average
+Percent difference: $percent
+EOT
+
+    if ($generate_visual_url) {
+        $uri->query_form([@url_args, 
+                          target => qq{alias(threshold($metric_average),"metric average")},
+                          target => qq{alias(threshold($compare_average),"compare average")},
+                        ]);
+        print STDERR "You can view the compared data by loading: $uri\n";
+    }
+}
+
+if (abs($percent) > $crit_at) {
+    print STDERR "OMG CRIT\n";
+    exit 2;
+} elsif (abs($percent) > $warn_at) {
+    print STDERR "BBQ WARN\n";
+    exit 1;
+} else {
+    print STDERR "We're fine\n";
+    exit 0;
+}
