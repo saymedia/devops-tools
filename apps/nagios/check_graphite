@@ -21,6 +21,7 @@ GetOptions(
     'metric=s'  => \(my $metric),
     'compare=s' => \(my $compare),
 
+    'name=s'    => \(my $name),
     'warn=s'    => \(my $warn_at),
     'crit=s'    => \(my $crit_at),
 
@@ -42,14 +43,14 @@ if (defined $metric && length $metric) {
     push @url_args, "target", $metric;
 } else {
     print STDERR "--metric is required\n";
-    exit 22;
+    exit 3;
 }
 
 if (defined $compare && length $metric) {
     push @url_args, "target", $compare;
 } else {
     print STDERR "--compare is required\n";
-    exit 22;
+    exit 3;
 }
 
 my $uri = URI->new($GRAPHITE_BASE);
@@ -65,20 +66,20 @@ if ($verbose) {
     print STDERR "I'm going to load my JSON data from: $uri\n";
 }
 
-exit 0 if $dry_run; # We haven't actually done anything yet, so exit
+exit 3 if $dry_run; # We haven't actually done anything yet, so exit
 
 # Get the JSON from Graphite
 my $raw_json = get($uri);
 
 unless ($raw_json) {
     print STDERR "Failed to get a JSON result from graphite.\n";
-    exit 138;
+    exit 3;
 }
 # Get the actual data out of the JSON blob.
 my $data = decode_json($raw_json);
 unless (@$data) {
     print STDERR "No data found\n";
-    exit 138;
+    exit 3;
 }
 
 my $get_average = sub {
@@ -108,13 +109,17 @@ EOT
     }
 }
 
+my $message = sprintf "Deviation of %0.2f%% ", $percent;
+$message .= "on $name " if $name;
+$message .= sprintf "(metric avg: %0.2f, compare avg: %0.2f)\n", $metric_average, $compare_average;
+
 if (abs($percent) > $crit_at) {
-    print STDERR "OMG CRIT\n";
+    print "CRIT $message\n";
     exit 2;
 } elsif (abs($percent) > $warn_at) {
-    print STDERR "BBQ WARN\n";
+    print "WARN $message\n";
     exit 1;
 } else {
-    print STDERR "We're fine\n";
+    print "UNKNOWN $message\n";
     exit 0;
 }
