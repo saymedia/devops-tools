@@ -16,7 +16,7 @@ GetOptions(
            'host-only'     => \(my $host_only = 0),
            'appname=s'     => \(my $appname = $ENV{app_name}),
            'hostname=s'    => \(my $hostname = 'localhost'),
-           'env=s'         => \(my $environment = undef),
+           'env=s'         => \(my $environment = 'PROD'),
 
            'd|debug' => \(my $debug = 0),
            'h|usage' => \(my $usage = 0),
@@ -57,11 +57,11 @@ if (defined $sample_rate && !$counter) {
 if (defined $sample_rate && $sample_rate <= 0) {
     die "Sample rate has to be greater than 0\n";
 }
-if ($event && !defined $environment) {
-    die "--env is required with --event\n";
+if (defined $event && !defined $environment) {
+    die "--environment is required with $event\n";
 }
-if (defined $environment && !$event) {
-    die "--env is allowed only with --event";
+if (defined $environment && !defined $event) {
+    die "--environment works only with --event\n";
 }
 
 if (@ARGV > 2) {
@@ -122,12 +122,14 @@ if ($counter || $aggregate || $gauge) {
 } elsif ($event) {
     $metric = "$environment.apps.events.$appname.$metric";
     $value = 1;
+    my $hostname = 'oak-ss-stats001';
+    my $port     = 2003;
 
     my $graphite = IO::Socket::INET->new(
-                                         PeerAddr => "oak-ss-stats001",
-                                         PeerPort => 2003,
+                                         PeerAddr => $hostname,
+                                         PeerPort => $port,
                                          Timeout => 1
-                                     ) or die "Can't connect to oak-ss-stats001: '$!'\n";
+                                     ) or die "Can't connect to $hostname:$port: '$!'\n";
 
     print "[DEBUG] UDP connection opened on $hostname\n" if $debug;
 

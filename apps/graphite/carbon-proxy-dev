@@ -39,6 +39,10 @@ while (1) {
     if ($server) {
         my $ip_addr = $client->peerhost;
         while (my $input = <$client>) {
+            if ($input =~ /^\w+\.apps\.event/) {
+                $server->write($input);
+                next;
+            }
             my $tag = "UNKNOWN";
             my ($hostclass) = $input =~ m/^\w+-(\w+-\w+?)\d+[a-z]*\b/;
             $hostclass ||= "unknown";
