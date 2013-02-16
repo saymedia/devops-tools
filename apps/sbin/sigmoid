@@ -3,7 +3,6 @@
 use strict;
 use Getopt::Long;
 use IO::Socket::INET;
-use Sys::Hostname;
 
 GetOptions(
            'counter'   => \(my $counter = 0),
@@ -15,7 +14,6 @@ GetOptions(
            'cluster-only'  => \(my $cluster_only = 0),
            'host-only'     => \(my $host_only = 0),
            'appname=s'     => \(my $appname = $ENV{app_name}),
-           'hostname=s'    => \(my $hostname = 'localhost'),
            'env=s'         => \(my $environment = 'PROD'),
 
            'd|debug' => \(my $debug = 0),
@@ -35,7 +33,6 @@ if ($usage) {
     print " --cluster-only (for statsd only)\n";
     print " --host-only (for statsd only)\n";
     print " --appname\n";
-    print " --hostname (to log on behalf of another machine)\n";
     print " --env\n";
     print " --debug\n";
     exit 1;
@@ -78,7 +75,7 @@ if ($event + $gauge + $aggregate + $counter != 1) {
 
 # Stuff going to statsd
 if ($counter || $aggregate || $gauge) {
-    $hostname = $central_statsd if $cluster_only;
+    my $hostname = $cluster_only ? $central_statsd : "localhost";
 
     my $type = "";
 
