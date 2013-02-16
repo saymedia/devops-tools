@@ -67,6 +67,9 @@ if (@ARGV > 2) {
 if (!$metric) {
     die "I need a metric name specified\n";
 }
+if ($gauge && !$cluster_only) {
+    $host_only = 1;
+}
 
 # Exactly one of these must be set
 if ($event + $gauge + $aggregate + $counter != 1) {
@@ -85,8 +88,7 @@ if ($counter || $aggregate || $gauge) {
     }else {
         $type = "c" if $counter;
         $type = "ms" if $aggregate;
-        #  you can't aggregate gauges across a cluster (they will all overwrite each other!)
-        ($type, $host_only) = ("g", 1) if $gauge;
+        $type = "g" if $gauge;
     }
 
     # FIXME: other statsd-proxies aren't listening on non-localhost
