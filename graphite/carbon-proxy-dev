@@ -1,0 +1,79 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+
+use IO::Socket::INET;
+
+my $listener = IO::Socket::INET->new(
+    LocalPort => 2203,
+    Listen => 1024,
+);
+
+$SIG{CHLD} = "IGNORE";
+
+while (1) {
+    local $!;
+    my $client = $listener->accept;
+
+    unless ($client) {
+        warn "Failed to accept new client: $!\n";
+        sleep 10;
+        next;
+    }
+
+    my $pid = fork();
+    redo if $pid; # Parent gets the child PID, so go accept another sock
+
+    warn "Fired up a child: $$";
+
+    warn "Unable to fork, running single-process: $!"
+        unless defined $pid;
+
+    print STDERR "Opening socket to server\n";
+    my $server = IO::Socket::INET->new(
+        PeerAddr => '127.0.0.1:2003',
+    );
+    print STDERR "Done opening socket to server\n";
+
+    if ($server) {
+        my $ip_addr = $client->peerhost;
+        while (my $input = <$client>) {
+            if ($input =~ /^\w+\.apps\.event/) {
+                $server->write($input);
+                next;
+            }
+            my $tag = "UNKNOWN";
+            my ($hostclass) = $input =~ m/^\w+-(\w+-\w+?)\d+[a-z]*\b/;
+            $hostclass ||= "unknown";
+
+            if ($hostclass =~ /-ci/) {
+                $tag = "CI";
+            } elsif ($hostclass =~ /-qa/) {
+                $tag = "QA";
+            } elsif ($hostclass =~ /-dev/) {
+                $tag = "DEV";
+            } else {
+                # these don't conform to our naming scheme, just use
+                # the front part of the VM name
+                $tag = "DEV";
+                ($hostclass) = $input =~ m/^(\w+)-?/;
+                $hostclass ||= "unknown";
+            }
+
+            $server->write("$tag.hosts.$hostclass.$input");
+        }
+
+    } else {
+        warn "Couldn't open connection to server: $!\n";
+        $client->close;
+        sleep 10;
+    }
+
+
+    if (defined $pid) { # We're in a child process
+        warn "Shutting down $$";
+        exit;
+        last;
+    }
+}
