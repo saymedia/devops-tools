@@ -17,3 +17,11 @@ An Apache CustomLog destination that logs interesting metrics to statsd: request
 ### sigmoid
 
 Wrap this script in other scripts that need to report metrics or statistics to Graphite or StatsD.
+
+### check_graphite
+
+Compare two metrics from Graphite and create an alert if the difference is greater than the value of ``--crit`` or ``--warn``.
+
+### carbon-proxy-*
+
+Proxies to rewrite metrics name and do multixplexing.
