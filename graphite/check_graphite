@@ -22,6 +22,8 @@ GetOptions(
     'warn=s'    => \(my $warn_at),
     'crit=s'    => \(my $crit_at),
 
+    'pd=s'      => \(my $pd_key),
+
     'n|dry-run' => \(my $dry_run),
     'v|verbose' => \(my $verbose),
 
@@ -107,11 +109,8 @@ Percent difference: $percent
 EOT
 
     if ($generate_visual_url) {
-        $uri->query_form([@url_args, 
-                          target => qq{alias(threshold($metric_average),"metric average")},
-                          target => qq{alias(threshold($compare_average),"compare average")},
-                        ]);
-        print STDERR "You can view the compared data by loading: $uri\n";
+        my $visual_url = _generate_visual_url();
+        print STDERR "You can view the compared data by loading: $visual_url\n";
     }
 }
 
@@ -119,15 +118,60 @@ my $message = sprintf "Deviation of %0.2f%% ", $percent;
 $message .= "on $name " if $name;
 $message .= sprintf "(metric avg: %0.2f, compare avg: %0.2f)\n", $metric_average, $compare_average;
 
-if (abs($percent) > $crit_at) {
-    print "CRIT $message\n";
-    exit 2;
-} elsif (abs($percent) > $warn_at) {
-    print "WARN $message\n";
-    exit 1;
-} else {
-    print "UNKNOWN $message\n";
-    exit 0;
+if (defined $pd_key) {
+    _notify_pd($message);
+}else{
+    if (abs($percent) > $crit_at) {
+        print "CRIT $message\n";
+        exit 2;
+    } elsif (abs($percent) > $warn_at) {
+        print "WARN $message\n";
+        exit 1;
+    } else {
+        print "UNKNOWN $message\n";
+        exit 0;
+    }
+}
+
+sub _generate_visual_url {
+    return $uri->clone->query_form([
+        @url_args,
+        target => qq{alias(threshold($metric_average),"metric average")},
+        target => qq{alias(threshold($compare_average),"compare average")},
+    ]);
+}
+
+sub _notify_pd {
+    my $message = shift;
+    require LWP::UserAgent;
+
+    my $ua = LWP::UserAgent->new();
+    my $req = HTTP::Request->new(
+        'POST' => 'https://events.pagerduty.com/generic/2010-04-15/create_event.json'
+    );
+
+    $req->content(encode_json({
+        service_key  => $pd_key,
+        incident_key => 'check_graphite ' . $name,
+        event_type   => 'trigger',
+        description  => $message,
+        details      => {
+            url       => _generate_visual_url,
+            from      => $from,
+            until     => $until,
+            deviation => sprintf '%0.2f%%', $percent,
+            warn_at   => $warn_at,
+            crit_at   => $crit_at,
+            metric    => $metric,
+            compare   => $compare,
+        },
+    }));
+
+    my $res = $ua->request($req);
+
+    if (!$res->is_success) {
+        print STDERR "Failed to notify pager duty";
+    }
 }
 
 __END__
@@ -185,6 +229,10 @@ Print URL.
 =item B<visual>
 
 Print the URL to the graph.
+
+=item B<pd_key>
+
+PagerDuty's API key.  If the key is set, instead of creating an output for Nagios, an alert will be created on PagerDuty.
 
 =back
 
