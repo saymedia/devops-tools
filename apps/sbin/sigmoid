@@ -78,8 +78,6 @@ if ($event + $gauge + $aggregate + $counter != 1) {
 
 # Stuff going to statsd
 if ($counter || $aggregate || $gauge) {
-    my $hostname = $cluster_only ? $central_statsd : "localhost";
-
     my $type = "";
 
     if ($counter && defined $sample_rate) {
@@ -91,9 +89,8 @@ if ($counter || $aggregate || $gauge) {
         $type = "g" if $gauge;
     }
 
-    # FIXME: other statsd-proxies aren't listening on non-localhost
     my $statsd = IO::Socket::INET->new(
-                                    PeerAddr => $hostname,
+                                    PeerAddr => "localhost",
                                     PeerPort => '8125',
                                     Proto    => 'udp',
                                     ) or die "Somehow we couldn't open a UDP socket to $hostname: '$!'\n";
