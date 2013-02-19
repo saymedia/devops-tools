@@ -1,0 +1,195 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+
+use JSON::XS;
+use LWP::Simple qw(get);
+use List::Util qw(sum);
+use Getopt::Long;
+use Pod::Usage;
+
+my $GRAPHITE_BASE = "http://graphite.sigma.saymedia.com/render/";
+
+GetOptions(
+    'from=s'    => \(my $from),
+    'until=s'   => \(my $until),
+
+    'metric=s'  => \(my $metric),
+    'compare=s' => \(my $compare),
+
+    'name=s'    => \(my $name),
+    'warn=s'    => \(my $warn_at),
+    'crit=s'    => \(my $crit_at),
+
+    'n|dry-run' => \(my $dry_run),
+    'v|verbose' => \(my $verbose),
+
+    'visual'    => \(my $generate_visual_url),
+
+    'h|help'    => \(my $help = 0),
+) or pod2usage(2);;
+
+pod2usage(-verbose => 2) if $help;
+
+my @url_args;
+
+push @url_args, "from", $from
+    if (defined $from && length $from);
+
+push @url_args, "until", $until
+    if (defined $until && length $until);
+
+if (defined $metric && length $metric) {
+    push @url_args, "target", $metric;
+} else {
+    print STDERR "--metric is required\n";
+    exit 3;
+}
+
+if (defined $compare && length $metric) {
+    push @url_args, "target", $compare;
+} else {
+    print STDERR "--compare is required\n";
+    exit 3;
+}
+
+if (!defined $warn_at || !defined $crit_at) {
+    print STDERR "--crit and --warn are required\n";
+    exit 3;
+}
+
+my $uri = URI->new($GRAPHITE_BASE);
+
+if ($verbose && $generate_visual_url) {
+    $uri->query_form(\@url_args);
+    print STDERR "You can view the compared data by loading: $uri\n";
+}
+
+$uri->query_form([@url_args, format => 'json']);
+
+if ($verbose) {
+    print STDERR "I'm going to load my JSON data from: $uri\n";
+}
+
+exit 3 if $dry_run; # We haven't actually done anything yet, so exit
+
+# Get the JSON from Graphite
+my $raw_json = get($uri);
+
+unless ($raw_json) {
+    print STDERR "Failed to get a JSON result from graphite.\n";
+    exit 3;
+}
+# Get the actual data out of the JSON blob.
+my $data = decode_json($raw_json);
+unless (@$data) {
+    print STDERR "No data found\n";
+    exit 3;
+}
+
+my $get_average = sub {
+    my $item = shift;
+    my $sum = sum map { $_->[0] } @{$item->{datapoints}};
+    return $sum / scalar(@{$item->{datapoints}});
+};
+
+my $metric_average = $get_average->(shift @$data);
+my $compare_average = $get_average->(shift @$data);
+
+my $percent = 100 * ($metric_average - $compare_average ) / $compare_average; # ?? O_o
+
+if ($verbose) {
+    print STDERR <<"EOT";
+Metric Average is: $metric_average
+Compare Average is: $compare_average
+Percent difference: $percent
+EOT
+
+    if ($generate_visual_url) {
+        $uri->query_form([@url_args, 
+                          target => qq{alias(threshold($metric_average),"metric average")},
+                          target => qq{alias(threshold($compare_average),"compare average")},
+                        ]);
+        print STDERR "You can view the compared data by loading: $uri\n";
+    }
+}
+
+my $message = sprintf "Deviation of %0.2f%% ", $percent;
+$message .= "on $name " if $name;
+$message .= sprintf "(metric avg: %0.2f, compare avg: %0.2f)\n", $metric_average, $compare_average;
+
+if (abs($percent) > $crit_at) {
+    print "CRIT $message\n";
+    exit 2;
+} elsif (abs($percent) > $warn_at) {
+    print "WARN $message\n";
+    exit 1;
+} else {
+    print "UNKNOWN $message\n";
+    exit 0;
+}
+
+__END__
+
+=head1 NAME
+
+check_graphite - Alert based on Graphite
+
+=head2 SYNOPSIS
+
+  check_graphite --period=1d --end=now --metric=sumSeries(foo.bar.*.baz) \
+    --compare-to=timeShift(sumSeries(foo.bar.*.baz),5d) --warn=10% \
+    --crit=5% -n --dry-run --graphite-urls
+
+=head1 OPTIONS
+
+=over 4
+
+=item B<from> (optional)
+
+Specifies the beginning.  If omitted, it defaults to 24 hours ago.
+
+=item B<until> (optional)
+
+Specifies the end. If until is omitted, it defaults to the current time (now).
+
+=item B<metric> (required)
+
+The metric we want to monitor.
+
+=item B<compare> (required)
+
+The metric we want to compare to.
+
+=item B<name> (optional)
+
+Used when printing the status.
+
+=item B<warn> (required)
+
+Returns a status code of B<1> if the deviation is greater than this value.
+
+=item B<crit> (required)
+
+Returns a status code of B<2> if the deviation is greater than this value.
+
+=item B<dry-run>
+
+Don't call graphite, but print on STDERR the URL we would have called.
+
+=item B<verbose>
+
+Print URL.
+
+=item B<visual>
+
+Print the URL to the graph.
+
+=back
+
+=head1 DESCRIPTION
+
+check_graphite is used to compare two metrics, and can be consumed by Nagios to build an alert based on some values.
+
+The script is calling Graphite with two differents target, sum the datapoints for each metric, and compare the difference between the two metrics.  If the difference is greater than the value of B<--warn> or B<--crit>, the exit code used by the script will be either 1 or 2, so Nagios can create an appropriate alert.
