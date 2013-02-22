@@ -37,12 +37,16 @@ while (1) {
         unless defined $pid;
 
     print STDERR "Opening socket to server\n";
-    my $server = IO::Socket::INET->new(
-        PeerAddr => '127.0.0.1:2003',
-    );
+    my @servers = ();
+    for my $port (2001..2004) {
+        push @servers, IO::Socket::INET->new(
+            PeerAddr => "127.0.0.1:$port",
+        );
+    }
     print STDERR "Done opening socket to server\n";
 
-    if ($server) {
+    if (scalar @servers) {
+        my $server = $servers[rand(@servers)];
         my $ip_addr = $client->peerhost;
         while (my $input = <$client>) {
             if ($input =~ /^\w+\.apps\.event/) {
