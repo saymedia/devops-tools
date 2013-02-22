@@ -51,7 +51,6 @@ while (1) {
                 $input =~ s{\b__TYPE__\b}{$type}g;
             }
             $server->write($input);
-            $server->write("TEST.$input");
         }
 
     } else {
