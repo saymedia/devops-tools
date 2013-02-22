@@ -48,6 +48,8 @@ while (1) {
         }else{
             push @output, "$tag.hosts.$hostclass.$hostname.__TYPE__.$line";
             push @output, "$tag.apps.__TYPE__.$line";
+            push @output, "TEST.$tag.hosts.$hostclass.$hostname.__TYPE__.$line";
+            push @output, "TEST.$tag.apps.__TYPE__.$line";
         }
     }
 
