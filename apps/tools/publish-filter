@@ -1,0 +1,27 @@
+#!/bin/bash
+
+shopt -s nullglob
+
+mkdir "$TEMPDIR"
+
+COUNT=0
+
+for i in $PUBLISH
+do
+    if [ -e "$i" ]
+    then
+        DIR="`dirname $i`"
+        mkdir -p "$TEMPDIR/$DIR"
+        mv "$i" "$TEMPDIR/$DIR"
+        ((COUNT++))
+    fi
+done
+
+rm -rf *
+
+if [ "$COUNT" -ge 1 ]
+then
+    mv "$TEMPDIR"/* .
+fi
+
+rm -rf "$TEMPDIR"

@@ -1,0 +1,26 @@
+#!/bin/bash
+
+export PUBLISH="
+    apps/statsd/statsd-proxy-*
+    apps/graphite/carbon-proxy
+    apps/graphite/carbon-proxy-*
+    apps/tools/apache-statsd
+    apps/sbin/sigmoid
+    apps/nagios/check_graphite
+"
+    #apps/tools/publish
+    #apps/tools/publish-filter
+
+export TEMPDIR="../temp_ops"
+
+FILTER="`pwd`/$0-filter"
+
+git checkout -b publish-temp origin/master
+git filter-branch -f --tree-filter "$FILTER" HEAD -- $PUBLISH
+git fetch github-public
+
+# ab843ba is a point-in-time milestone that marks where we published out tools
+# on 2013-03-28, so we can skip everything before that
+git rebase --onto github-public/master ab843ba HEAD
+
+#git push HEAD:github-public/master
