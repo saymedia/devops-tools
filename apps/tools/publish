@@ -7,9 +7,9 @@ export PUBLISH="
     apps/tools/apache-statsd
     apps/sbin/sigmoid
     apps/nagios/check_graphite
+    apps/tools/publish
+    apps/tools/publish-filter
 "
-    #apps/tools/publish
-    #apps/tools/publish-filter
 
 export TEMPDIR="../temp_ops"
 
