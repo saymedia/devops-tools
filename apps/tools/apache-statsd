@@ -94,21 +94,15 @@ while (<>) {
     $virtualhost =~ tr/./_/;
     $base =~ s/__VHOST__/$virtualhost/g;
     push @stats, "$base.all.requests:1|c";
+    push @stats, "$base.method.$request_method.requests:1|c"
+        if $request_method;
+    push @stats, "$base.status.$status.requests:1|c"
+        if $status;
     push @stats, "$base.all.bytes:$bytes|ms"
-        if defined $bytes && $bytes =~ m/^\d+$/; # hijack timers for the summary
-    push @stats, "$base.all.time:$msec|ms" if defined $msec;
+        if defined $bytes && $bytes =~ m/^\d+$/;
+    push @stats, "$base.all.time:$msec|ms"
+        if defined $msec;
 
-    if ($request_method) {
-        push @stats, "$base.method.$request_method.requests:1|c";
-        push @stats, "$base.method.$request_method.bytes:$bytes|ms"; # hijack timers for the summary
-        push @stats, "$base.method.$request_method.time:$msec|ms" if defined $msec;
-    }
-
-    if ($status) {
-        push @stats, "$base.status.$status.requests:1|c";
-        push @stats, "$base.status.$status.bytes:$bytes|ms"; # hijack timers for the summary
-        push @stats, "$base.status.$status.time:$msec|ms" if defined $msec;
-    }
 
     $statsd->send(join("\n", @stats), 0);
 }
