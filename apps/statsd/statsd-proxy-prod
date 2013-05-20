@@ -26,7 +26,7 @@ my $sock = IO::Socket::INET->new(
 );
 
 my $inject_sock = IO::Socket::INET->new(
-    PeerAddr => 'oak-ss-stats001',
+    PeerAddr => 'statsd.sigma.saymedia.com',
     PeerPort => '8125',
     Proto => 'udp',
 );

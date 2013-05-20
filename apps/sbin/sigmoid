@@ -118,7 +118,7 @@ if ($counter || $aggregate || $gauge) {
 } elsif ($event) {
     $metric = "$environment.apps.events.$appname.$metric";
     $value = 1;
-    my $hostname = 'oak-ss-stats001';
+    my $hostname = 'carbon.sigma.saymedia.com';
     my $port     = 2003;
 
     my $graphite = IO::Socket::INET->new(
